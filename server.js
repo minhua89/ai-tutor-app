@@ -17,7 +17,6 @@ if (!API_KEY) {
 
 const genAI = new GoogleGenerativeAI(API_KEY);
 
-// --- 這是我們最後的、最重要的修改 ---
 // 我們使用最穩定、最基礎的模型名稱，確保最大的相容性
 const model = genAI.getGenerativeModel({ model: "gemini-1.0-pro" });
 
@@ -26,29 +25,25 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.post('/generate-quiz', upload.single('pdfFile'), async (req, res) => {
     try {
-        if (!req.file || !req.body.wrongQuestions) {
-            return res.status(400).json({ error: "請求不完整，缺少檔案或錯題號碼。" });
-        }
-        const wrongQuestions = req.body.wrongQuestions;
-        const pdfBuffer = req.file.buffer;
-        const data = await pdf(pdfBuffer);
-        const documentText = data.text;
+        // --- 最終診斷：我們暫時忽略使用者的上傳 ---
+        // const wrongQuestions = req.body.wrongQuestions;
+        // const pdfBuffer = req.file.buffer;
+        // const data = await pdf(pdfBuffer);
+        // const documentText = data.text;
+        
+        console.log("正在執行最終診斷測試...");
 
+        // --- 使用一個絕對簡單、寫死的指令 ---
         const prompt = `
-            你是一位專業的高中數學老師。這是一份試卷的文字內容：
-            ---
-            ${documentText}
-            ---
-            這位學生做錯了以下題目：${wrongQuestions}。
-            請根據這些錯題，為他設計 ${wrongQuestions.split(',').length} 道新的變化題，數字需與原題不同，但題型和難度應相似。
+            你是一位數學老師。請設計一道關於「絕對值」的簡單選擇題。
             請嚴格按照以下 JSON 格式回傳，不要有任何多餘的文字或註解：
             [
                 {
-                    "originalId": "原始題號",
-                    "question": "新的問題描述",
-                    "options": ["選項A", "選項B", "選項C", "選項D"],
-                    "answer": "正確答案",
-                    "explanation": "解題思路說明"
+                    "originalId": "診斷測試",
+                    "question": "請問 |–5| + |3| 的值是多少？",
+                    "options": ["-8", "-2", "2", "8"],
+                    "answer": "8",
+                    "explanation": "絕對值代表一個數到原點的距離，所以 |–5| = 5，|3| = 3。因此 5 + 3 = 8。"
                 }
             ]
         `;
@@ -68,8 +63,9 @@ app.post('/generate-quiz', upload.single('pdfFile'), async (req, res) => {
         res.json(quizJson);
 
     } catch (error) {
-        console.error("在 /generate-quiz 路由中捕獲到錯誤:", error);
-        res.status(500).json({ error: 'AI 產生題目失敗，請檢查伺服器日誌。' });
+        // 增加更詳細的錯誤日誌，方便除錯
+        console.error("在 /generate-quiz 路由中捕獲到詳細錯誤:", error);
+        res.status(500).json({ error: 'AI 產生題目失敗，請檢查伺服器日誌以了解詳細資訊。' });
     }
 });
 
