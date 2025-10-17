@@ -1,0 +1,75 @@
+
+    <html lang="zh-TW">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>AI 訂正小老師</title>
+        <style>
+            /* 這裡放入之前提供的所有 CSS 樣式 */
+            :root {
+                --primary-color: #4a90e2; --light-gray: #f0f2f5; --dark-gray: #333;
+                --correct-color: #28a745; --incorrect-color: #dc3545; --card-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                background-color: var(--light-gray); color: var(--dark-gray); margin: 0; padding: 20px;
+                display: flex; justify-content: center; align-items: center; min-height: 100vh;
+            }
+            /* ... 省略其他 CSS ... */
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <!-- 這裡放入之前提供的所有 HTML 畫面結構 -->
+            <!-- ... -->
+        </div>
+
+        <script>
+            // 這裡放入之前提供的所有前端 JavaScript 程式碼
+            // 確保 startQuiz 函式是這樣的：
+            async function startQuiz() {
+                const wrongQuestionsInput = document.getElementById('wrong-questions').value;
+                const fileInput = document.getElementById('file-upload-input');
+
+                if (wrongQuestionsInput.trim() === "" || fileInput.files.length === 0) {
+                    alert("請務必上傳試卷檔案，並輸入您答錯的題號！");
+                    return;
+                }
+
+                const file = fileInput.files[0];
+                const formData = new FormData();
+                formData.append('pdfFile', file);
+                formData.append('wrongQuestions', wrongQuestionsInput);
+
+                const button = document.querySelector('#input-errors-screen .btn');
+                button.textContent = 'AI 正在為您出題中...';
+                button.disabled = true;
+
+                try {
+                    // 這行會自動連接到 Render 上運行的後端
+                    const response = await fetch('/generate-quiz', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || '伺服器發生錯誤！');
+                    }
+                    
+                    window.quizData = await response.json(); // 接收動態題目
+                    
+                    // ... 後續顯示題目的程式碼 ...
+                    
+                } catch (error) {
+                    alert(error.message);
+                } finally {
+                    button.textContent = '獲取訂正測驗';
+                    button.disabled = false;
+                }
+            }
+            // ... 其他 JavaScript 函式 ...
+        </script>
+    </body>
+    </html>
+    
