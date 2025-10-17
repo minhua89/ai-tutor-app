@@ -1,75 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 訂正小老師</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2; --light-gray: #f0f2f5; --dark-gray: #333;
+            --correct-color: #28a745; --incorrect-color: #dc3545; --card-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--light-gray); color: var(--dark-gray); margin: 0; padding: 20px;
+            display: flex; justify-content: center; align-items: center; min-height: 100vh;
+        }
+        .container {
+            width: 100%; max-width: 500px; background-color: white; border-radius: 12px;
+            box-shadow: var(--card-shadow); overflow: hidden; transition: all 0.3s ease;
+        }
+        .screen { padding: 25px 30px; text-align: center; }
+        .hidden { display: none; }
+        h1 { font-size: 1.8em; color: var(--primary-color); margin-bottom: 10px; }
+        h2 { font-size: 1.4em; margin-bottom: 20px; }
+        p { font-size: 1.1em; line-height: 1.6; margin-bottom: 20px; }
+        .input-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; text-align: left; }
+        input[type="text"], input[type="number"] {
+            width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 1em; box-sizing: border-box;
+        }
+        .btn {
+            display: inline-block; width: 100%; padding: 15px; background-color: var(--primary-color);
+            color: white; border: none; border-radius: 8px; font-size: 1.1em; font-weight: bold;
+            cursor: pointer; transition: background-color 0.2s ease;
+        }
+        .btn:hover { background-color: #357abd; }
+        .upload-area {
+            border: 2px dashed var(--primary-color); border-radius: 8px; padding: 40px 20px;
+            margin-top: 20px; cursor: pointer;
+        }
+        .upload-area p { margin: 0; font-weight: bold; color: var(--primary-color); }
+        .options-container { display: flex; flex-direction: column; gap: 12px; }
+        .option-btn {
+            background-color: white; color: var(--primary-color); border: 2px solid var(--primary-color);
+            text-align: left; padding: 15px;
+        }
+        .option-btn:hover { background-color: #e9f2fe; }
+        #feedback-screen .feedback-card { padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: left; }
+        #feedback-screen .feedback-card.correct { background-color: #e9f7eb; border-left: 5px solid var(--correct-color); }
+        #feedback-screen .feedback-card.incorrect { background-color: #fce8e6; border-left: 5px solid var(--incorrect-color); }
+        #feedback-screen h3 { margin-top: 0; }
+        .report-card { border: 2px solid var(--primary-color); border-radius: 12px; padding: 20px; margin-top: 20px; background-color: #f8f9fa; }
+        .report-card .score { font-size: 3em; font-weight: bold; color: var(--primary-color); }
+    </style>
+</head>
+<body>
 
-    <html lang="zh-TW">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>AI 訂正小老師</title>
-        <style>
-            /* 這裡放入之前提供的所有 CSS 樣式 */
-            :root {
-                --primary-color: #4a90e2; --light-gray: #f0f2f5; --dark-gray: #333;
-                --correct-color: #28a745; --incorrect-color: #dc3545; --card-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            }
-            body {
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-                background-color: var(--light-gray); color: var(--dark-gray); margin: 0; padding: 20px;
-                display: flex; justify-content: center; align-items: center; min-height: 100vh;
-            }
-            /* ... 省略其他 CSS ... */
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <!-- 這裡放入之前提供的所有 HTML 畫面結構 -->
-            <!-- ... -->
+<div class="container">
+    <div id="welcome-screen" class="screen">
+        <h1>AI 訂正小老師</h1>
+        <p>您好！上傳您的試卷，我會為您量身打造訂正測驗，幫助您徹底搞懂！</p>
+        <div class="upload-area" onclick="document.getElementById('file-upload-input').click()">
+            <p>選擇檔案</p>
+            <span>支援格式：PDF</span>
         </div>
+        <input type="file" id="file-upload-input" class="hidden" onchange="handleFileUpload(event)" accept=".pdf">
+    </div>
+    <div id="input-errors-screen" class="screen hidden">
+        <h2 id="paper-title-display">檔案已收到！</h2>
+        <p id="paper-title-sub">試卷：</p>
+        <div class="input-group">
+            <label for="wrong-questions">請輸入您答錯的題號 (例如：單選1, 填充B)</label>
+            <input type="text" id="wrong-questions" placeholder="單選2, 填充C">
+        </div>
+        <button class="btn" onclick="startQuiz()">獲取訂正測驗</button>
+    </div>
+    <div id="quiz-screen" class="screen hidden">
+        <p id="quiz-progress"></p>
+        <h2 id="question-title"></h2>
+        <p id="question-text" style="text-align: left;"></p>
+        <div id="question-options" class="options-container"></div>
+    </div>
+    <div id="feedback-screen" class="screen hidden">
+        <div id="feedback-card" class="feedback-card">
+            <h3 id="feedback-title"></h3>
+            <p id="feedback-explanation" style="white-space: pre-wrap;"></p>
+        </div>
+        <button id="next-question-btn" class="btn">前往下一題</button>
+    </div>
+    <div id="user-info-screen" class="screen hidden">
+        <h2>測驗完成！</h2>
+        <p>做得很好，訂正是進步的開始！請輸入您的資訊以產生本次的訂正報告。</p>
+        <div class="input-group">
+            <label for="class-name">班級：</label><input type="text" id="class-name" placeholder="高一忠班">
+        </div>
+        <div class="input-group">
+            <label for="user-name">姓名：</label><input type="text" id="user-name" placeholder="王小明">
+        </div>
+        <div class="input-group">
+            <label for="seat-number">座號：</label><input type="number" id="seat-number" placeholder="12">
+        </div>
+        <button class="btn" onclick="generateReport()">產生訂正報告</button>
+    </div>
+    <div id="report-screen" class="screen hidden">
+        <h1>訂正測驗報告</h1>
+        <div class="report-card">
+            <p><strong>試卷：</strong><span id="report-title"></span></p>
+            <p><strong>學生：</strong><span id="report-user-info"></span></p><hr>
+            <p>測驗得分</p>
+            <p class="score"><span id="report-score"></span> / 10 分</p>
+            <p id="report-details">(答對 0 / 2 題)</p>
+        </div>
+        <button class="btn" style="margin-top:20px; background-color:#6c757d;" onclick="restart()">重新開始</button>
+    </div>
+</div>
 
-        <script>
-            // 這裡放入之前提供的所有前端 JavaScript 程式碼
-            // 確保 startQuiz 函式是這樣的：
-            async function startQuiz() {
-                const wrongQuestionsInput = document.getElementById('wrong-questions').value;
-                const fileInput = document.getElementById('file-upload-input');
+<script>
+    let quizData = [];
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let paperTitle = "";
 
-                if (wrongQuestionsInput.trim() === "" || fileInput.files.length === 0) {
-                    alert("請務必上傳試卷檔案，並輸入您答錯的題號！");
-                    return;
-                }
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(screen => screen.classList.add('hidden'));
+        document.getElementById(screenId).classList.remove('hidden');
+    }
 
-                const file = fileInput.files[0];
-                const formData = new FormData();
-                formData.append('pdfFile', file);
-                formData.append('wrongQuestions', wrongQuestionsInput);
+    function handleFileUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            paperTitle = file.name.replace(/\.[^/.]+$/, "");
+            document.getElementById('paper-title-sub').textContent = `試卷：${paperTitle}`;
+            showScreen('input-errors-screen');
+        }
+    }
 
-                const button = document.querySelector('#input-errors-screen .btn');
-                button.textContent = 'AI 正在為您出題中...';
-                button.disabled = true;
+    async function startQuiz() {
+        const wrongQuestionsInput = document.getElementById('wrong-questions').value;
+        const fileInput = document.getElementById('file-upload-input');
 
-                try {
-                    // 這行會自動連接到 Render 上運行的後端
-                    const response = await fetch('/generate-quiz', {
-                        method: 'POST',
-                        body: formData,
-                    });
+        if (wrongQuestionsInput.trim() === "" || fileInput.files.length === 0) {
+            alert("請務必上傳試卷檔案，並輸入您答錯的題號！");
+            return;
+        }
 
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || '伺服器發生錯誤！');
-                    }
-                    
-                    window.quizData = await response.json(); // 接收動態題目
-                    
-                    // ... 後續顯示題目的程式碼 ...
-                    
-                } catch (error) {
-                    alert(error.message);
-                } finally {
-                    button.textContent = '獲取訂正測驗';
-                    button.disabled = false;
-                }
+        const file = fileInput.files[0];
+        const formData = new FormData();
+        formData.append('pdfFile', file);
+        formData.append('wrongQuestions', wrongQuestionsInput);
+
+        const button = document.querySelector('#input-errors-screen .btn');
+        button.textContent = 'AI 正在為您出題中，請稍候...';
+        button.disabled = true;
+
+        try {
+            const response = await fetch('/generate-quiz', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || '伺服器發生錯誤，請稍後再試！');
             }
-            // ... 其他 JavaScript 函式 ...
-        </script>
-    </body>
-    </html>
+
+            quizData = await response.json();
+            
+            if(!quizData || quizData.length === 0){
+                alert("AI 沒有成功產生題目，請檢查輸入或稍後再試。");
+                return;
+            }
+
+            currentQuestionIndex = 0;
+            score = 0;
+            showQuizQuestion();
+
+        } catch (error) {
+            alert(error.message);
+        } finally {
+            button.textContent = '獲取訂正測驗';
+            button.disabled = false;
+        }
+    }
     
+    function showQuizQuestion() {
+        showScreen('quiz-screen');
+        const question = quizData[currentQuestionIndex];
+        
+        document.getElementById('quiz-progress').textContent = `訂正測驗進行中... (${currentQuestionIndex + 1}/${quizData.length})`;
+        document.getElementById('question-title').textContent = `第 ${currentQuestionIndex + 1} 題 (改編自${question.originalId})`;
+        document.getElementById('question-text').textContent = question.question;
+
+        const optionsContainer = document.getElementById('question-options');
+        optionsContainer.innerHTML = '';
+        question.options.forEach(option => {
+            const button = document.createElement('button');
+            button.className = 'btn option-btn';
+            button.textContent = option;
+            button.onclick = () => checkAnswer(option);
+            optionsContainer.appendChild(button);
+        });
+    }
+
+    function checkAnswer(selectedOption) {
+        const question = quizData[currentQuestionIndex];
+        const feedbackCard = document.getElementById('feedback-card');
+        const feedbackTitle = document.getElementById('feedback-title');
+        const feedbackExplanation = document.getElementById('feedback-explanation');
+        
+        if (selectedOption === question.answer) {
+            score += 5;
+            feedbackCard.className = 'feedback-card correct';
+            feedbackTitle.textContent = '答對了！';
+            feedbackTitle.style.color = 'var(--correct-color)';
+        } else {
+            feedbackCard.className = 'feedback-card incorrect';
+            feedbackTitle.textContent = '答錯了，再接再厲！';
+            feedbackTitle.style.color = 'var(--incorrect-color)';
+        }
+        
+        feedbackExplanation.textContent = `正確答案是 ${question.answer}。\n\n${question.explanation}`;
+        
+        const nextBtn = document.getElementById('next-question-btn');
+        nextBtn.onclick = nextQuestion;
+        if (currentQuestionIndex >= quizData.length - 1) {
+            nextBtn.textContent = '查看測驗結果';
+        } else {
+            nextBtn.textContent = '前往下一題';
+        }
+        showScreen('feedback-screen');
+    }
+
+    function nextQuestion() {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < quizData.length) {
+            showQuizQuestion();
+        } else {
+            showScreen('user-info-screen');
+        }
+    }
+
+    function generateReport() {
+        const className = document.getElementById('class-name').value || "未填寫";
+        const userName = document.getElementById('user-name').value || "未填寫";
+        const seatNumber = document.getElementById('seat-number').value || "未填寫";
+
+        const totalQuestions = quizData.length;
+        const totalScore = totalQuestions * 5;
+        const correctCount = score / 5;
+
+        document.getElementById('report-title').textContent = paperTitle;
+        document.getElementById('report-user-info').textContent = `${className} ${seatNumber}號 ${userName}`;
+        document.getElementById('report-score').textContent = `${score} / ${totalScore} 分`;
+        document.getElementById('report-details').textContent = `(答對 ${correctCount} / ${totalQuestions} 題)`;
+        
+        showScreen('report-screen');
+    }
+    
+    function restart() {
+        quizData = [];
+        currentQuestionIndex = 0;
+        score = 0;
+        showScreen('welcome-screen');
+    }
+</script>
+</body>
+</html>
+
